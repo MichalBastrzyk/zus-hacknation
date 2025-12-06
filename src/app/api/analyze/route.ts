@@ -5,7 +5,7 @@ import { generateObject } from "ai"
 import { NextResponse } from "next/server"
 import { AccidentDecisionSchema } from "@/lib/validators"
 
-const GEMINI_MODEL = "gemini-2.0-flash"
+const GEMINI_MODEL = "gemini-2.5-flash-lite"
 
 export async function POST(req: Request) {
   try {

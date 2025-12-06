@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import { MessageCircleMore, Send, XIcon } from "lucide-react"
 import type { AccidentDecision } from "@/lib/validators"
+import { submitCase } from "@/app/actions/submitCase"
 
 export type ChatMessage = {
   role: "user" | "assistant"
@@ -42,6 +43,18 @@ const initialGreeting: ChatMessage = {
     "Cześć! Opisz proszę wypadek przy pracy: miejsce, data i godzina, co się stało krok po kroku, urazy oraz kto widział zdarzenie. Pomogę uzupełnić brakujące elementy.",
 }
 
+function uniqBy<T>(arr: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>()
+  const result: T[] = []
+  for (const item of arr) {
+    const k = key(item)
+    if (seen.has(k)) continue
+    seen.add(k)
+    result.push(item)
+  }
+  return result
+}
+
 export function AccidentChat() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>([initialGreeting])
@@ -53,6 +66,8 @@ export function AccidentChat() {
   const [analyzing, setAnalyzing] = useState(false)
   const [decision, setDecision] = useState<AccidentDecision | null>(null)
   const [decisionError, setDecisionError] = useState<string | null>(null)
+  const [isSubmitting, startSubmit] = useTransition()
+  const [submitMessage, setSubmitMessage] = useState<string | null>(null)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
@@ -98,8 +113,12 @@ export function AccidentChat() {
       }
 
       setMessages((prev) => [...prev, assistantMessage])
-      setMissingFields(data.missing_fields || [])
-      setFollowUps(data.follow_up_questions || [])
+      setMissingFields(
+        uniqBy(data.missing_fields || [], (i) => i.field.toLowerCase())
+      )
+      setFollowUps(
+        uniqBy(data.follow_up_questions || [], (q) => q.toLowerCase())
+      )
     } catch (err) {
       const message = err instanceof Error ? err.message : "Nieznany błąd"
       setError(message)
@@ -133,6 +152,25 @@ export function AccidentChat() {
     } finally {
       setAnalyzing(false)
     }
+  }
+
+  const handleSubmit = () => {
+    if (!decision || isSubmitting) return
+    setSubmitMessage(null)
+    startSubmit(async () => {
+      try {
+        await submitCase({ messages, decision })
+        setSubmitMessage(
+          "Zgłoszenie zapisane. Urzędnik skontaktuje się wkrótce."
+        )
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Nie udało się zapisać zgłoszenia"
+        setSubmitMessage(message)
+      }
+    })
   }
 
   return (
@@ -207,118 +245,138 @@ export function AccidentChat() {
                   </div>
                 )}
 
+                {!decision && (
+                  <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
+                    <div className="font-semibold text-foreground text-sm">
+                      Sprawdź wstępny werdykt
+                    </div>
+                    <div>
+                      Upewnij się, że podałeś miejsce, datę i godzinę, przebieg,
+                      przyczynę, urazy oraz świadków. Im więcej danych, tym
+                      lepsza ocena.
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        onClick={handleAnalyze}
+                        disabled={analyzing || messages.length < 2}
+                        size="sm"
+                        className="gap-2"
+                      >
+                        {analyzing ? "Analizuję..." : "Sprawdź szanse"}
+                      </Button>
+                      {missingFields.length > 0 && (
+                        <Badge variant="outline">
+                          Uzupełnij brakujące pola
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {decision && (
+                  <div className="rounded-lg border p-3 space-y-3 bg-background">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold">
+                        Werdykt:
+                        <Badge
+                          variant={
+                            decision.decision.type === "APPROVED"
+                              ? "default"
+                              : decision.decision.type === "REJECTED"
+                              ? "destructive"
+                              : "secondary"
+                          }
+                        >
+                          {decision.decision.type}
+                        </Badge>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        Pewność:{" "}
+                        {Math.round(decision.decision.confidence_level * 100)}%
+                      </div>
+                    </div>
+                    <Progress
+                      value={decision.decision.confidence_level * 100}
+                    />
+
+                    <div className="space-y-2 text-sm">
+                      <div className="font-semibold">Kryteria</div>
+                      <div className="grid gap-1 text-muted-foreground">
+                        <span>
+                          • Nagłość:{" "}
+                          {decision.criteria_analysis.suddenness.met
+                            ? "TAK"
+                            : "NIE"}{" "}
+                          –{" "}
+                          {decision.criteria_analysis.suddenness.justification}
+                        </span>
+                        <span>
+                          • Przyczyna zewnętrzna:{" "}
+                          {decision.criteria_analysis.external_cause.met
+                            ? "TAK"
+                            : "NIE"}{" "}
+                          –{" "}
+                          {
+                            decision.criteria_analysis.external_cause
+                              .justification
+                          }
+                        </span>
+                        <span>
+                          • Związek z pracą:{" "}
+                          {decision.criteria_analysis.work_connection.met
+                            ? "TAK"
+                            : "NIE"}{" "}
+                          –{" "}
+                          {
+                            decision.criteria_analysis.work_connection
+                              .justification
+                          }
+                        </span>
+                      </div>
+                    </div>
+
+                    {decision.identified_flaws.length > 0 && (
+                      <div className="space-y-1 text-sm">
+                        <div className="font-semibold">Ryzyka / braki</div>
+                        <ul className="list-disc pl-5 text-muted-foreground space-y-1">
+                          {decision.identified_flaws.map((flaw, idx) => (
+                            <li key={`flaw-${idx}`}>
+                              [{flaw.severity}] {flaw.category}:{" "}
+                              {flaw.detailed_description}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting || !decision}
+                        className="gap-2"
+                      >
+                        {isSubmitting
+                          ? "Wysyłam..."
+                          : "Wyślij formalne zgłoszenie do ZUS"}
+                      </Button>
+                      {submitMessage && (
+                        <div className="text-xs text-muted-foreground">
+                          {submitMessage}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {decisionError && (
+                  <div className="text-sm text-destructive">
+                    {decisionError}
+                  </div>
+                )}
+
                 <div ref={scrollRef} />
               </div>
             </ScrollArea>
-
-            <div className="space-y-3">
-              <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-                <div className="font-semibold text-foreground text-sm">
-                  Sprawdź wstępny werdykt
-                </div>
-                <div>
-                  Upewnij się, że podałeś miejsce, datę i godzinę, przebieg,
-                  przyczynę, urazy oraz świadków. Im więcej danych, tym lepsza
-                  ocena.
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    onClick={handleAnalyze}
-                    disabled={
-                      analyzing ||
-                      missingFields.length > 0 ||
-                      messages.length < 2
-                    }
-                    size="sm"
-                    className="gap-2"
-                  >
-                    {analyzing ? "Analizuję..." : "Sprawdź szanse"}
-                  </Button>
-                  {missingFields.length > 0 && (
-                    <Badge variant="outline">Uzupełnij brakujące pola</Badge>
-                  )}
-                </div>
-              </div>
-
-              {decision && (
-                <div className="rounded-lg border p-3 space-y-3 bg-background">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      Werdykt:
-                      <Badge
-                        variant={
-                          decision.decision.type === "APPROVED"
-                            ? "default"
-                            : decision.decision.type === "REJECTED"
-                            ? "destructive"
-                            : "secondary"
-                        }
-                      >
-                        {decision.decision.type}
-                      </Badge>
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Pewność:{" "}
-                      {Math.round(decision.decision.confidence_level * 100)}%
-                    </div>
-                  </div>
-                  <Progress value={decision.decision.confidence_level * 100} />
-
-                  <div className="space-y-2 text-sm">
-                    <div className="font-semibold">Kryteria</div>
-                    <div className="grid gap-1 text-muted-foreground">
-                      <span>
-                        • Nagłość:{" "}
-                        {decision.criteria_analysis.suddenness.met
-                          ? "TAK"
-                          : "NIE"}{" "}
-                        – {decision.criteria_analysis.suddenness.justification}
-                      </span>
-                      <span>
-                        • Przyczyna zewnętrzna:{" "}
-                        {decision.criteria_analysis.external_cause.met
-                          ? "TAK"
-                          : "NIE"}{" "}
-                        –{" "}
-                        {
-                          decision.criteria_analysis.external_cause
-                            .justification
-                        }
-                      </span>
-                      <span>
-                        • Związek z pracą:{" "}
-                        {decision.criteria_analysis.work_connection.met
-                          ? "TAK"
-                          : "NIE"}{" "}
-                        –{" "}
-                        {
-                          decision.criteria_analysis.work_connection
-                            .justification
-                        }
-                      </span>
-                    </div>
-                  </div>
-
-                  {decision.identified_flaws.length > 0 && (
-                    <div className="space-y-1 text-sm">
-                      <div className="font-semibold">Ryzyka / braki</div>
-                      <ul className="list-disc pl-5 text-muted-foreground space-y-1">
-                        {decision.identified_flaws.map((flaw, idx) => (
-                          <li key={`flaw-${idx}`}>
-                            [{flaw.severity}] {flaw.category}:{" "}
-                            {flaw.detailed_description}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {decisionError && (
-                <div className="text-sm text-destructive">{decisionError}</div>
-              )}
-            </div>
 
             {error && <div className="text-sm text-destructive">{error}</div>}
 

@@ -3,7 +3,7 @@ import { generateObject } from "ai"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-const GEMINI_MODEL = "gemini-2.0-flash-live"
+const GEMINI_MODEL = "gemini-2.5-flash-lite"
 
 const ChatReplySchema = z.object({
   assistant_message: z
@@ -35,6 +35,20 @@ const SystemPrompt = `
 Jesteś wirtualnym asystentem ZUS ds. wypadków przy pracy.
 Twoim zadaniem jest zebrać od poszkodowanego pełne zgłoszenie, znaleźć braki i poprosić o ich uzupełnienie.
 Pracujesz według polskich wymogów dokumentacji powypadkowej.
+
+ZASADY ANTY-POWTÓRZENIA:
+- Masz pełny transkrypt rozmowy. Nie pytaj ponownie o pola, które już są podane (np. świadek + telefon = nie pytaj drugi raz o świadka; przyczyna = nie pytaj drugi raz o przyczynę).
+- Jeśli dane są częściowe (np. jest telefon świadka, brak nazwiska) – pytaj tylko o brakujący fragment, a NIE o całe pole od zera.
+- follow_up_questions mają dotyczyć WYŁĄCZNIE nowych braków lub niejasności. Zero duplikatów.
+- missing_fields MA BYĆ PUSTE dla pól, które występują w transkrypcie nawet częściowo; w takim wypadku follow_up pytaj o brakujący fragment, nie oznaczaj całego pola jako brak.
+
+FORMAT:
+- assistant_message: krótka, rzeczowa odpowiedź po polsku (max 2-3 zdania), potwierdzająca to, co już zostało podane.
+- missing_fields: tylko pola, których realnie brakuje (puste) lub są całkowicie niepodane; wyklucz elementy już obecne w transkrypcie.
+- follow_up_questions: konkretne pytania tylko o brakujące fragmenty (np. "Podaj nazwisko świadka" zamiast "Podaj dane świadka").
+
+
+- Nie zmuszaj się do podawania follow_up_questions, jeśli wszystko jest jasne. Nie zmuszaj do podania nunmerów i kontaktu do świadków to jest bardzo ważne.
 
 Kluczowe dane, które musisz mieć:
 - miejsce zdarzenia,

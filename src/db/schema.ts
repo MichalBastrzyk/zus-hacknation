@@ -96,9 +96,15 @@ export const analysis = sqliteTable("analysis", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
-  // accidentId: text("accident_id")
-  //   .references(() => accidents.id)
-  //   .notNull(),
+  accidentId: text("accident_id").references(() => accidents.id),
+  injuredFirstName: text("injured_first_name", { length: 100 }),
+  injuredLastName: text("injured_last_name", { length: 100 }),
+  employerName: text("employer_name", { length: 500 }),
+  positionSnapshot: text("position_snapshot", { length: 200 }),
+  accidentDate: text("accident_date"),
+  accidentPlace: text("accident_place"),
+  accidentDescription: text("accident_description"),
+  accidentCause: text("accident_cause"),
   decision: text("decision").$type<
     "APPROVED" | "REJECTED" | "NEEDS_CLARIFICATION"
   >(),
@@ -115,9 +121,6 @@ export const analysis = sqliteTable("analysis", {
   attachedDocuments: blob({ mode: "json" })
     .$type<AttachedDocument[] | null>()
     .default(null),
-  attachedDocumentsHash: text("attached_documents_hash", {
-    length: 128,
-  }).notNull(),
   ...timestamps,
 })
 
