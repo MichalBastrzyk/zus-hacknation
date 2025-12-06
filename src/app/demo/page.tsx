@@ -2,16 +2,18 @@
 
 import { useEffect, useState, useRef } from "react"
 import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react"
-import { AccidentsTable } from "@/src/components/AccidentsTable"
-import { getAllAccidents, type Accident } from "@/src/db/dbHelpers/getAccidents"
-import { Button } from "@/src/components/ui/button"
-import { Alert, AlertDescription } from "@/src/components/ui/alert"
+import { AccidentsTable } from "@/components/AccidentsTable"
+import { getAllAccidents, type Accident } from "@/db/dbHelpers/getAccidents"
+import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function Page() {
   const [accidents, setAccidents] = useState<Accident[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [file, setFile] = useState<File | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle")
+  const [uploadStatus, setUploadStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle")
   const [uploadMessage, setUploadMessage] = useState("")
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -64,7 +66,9 @@ export default function Page() {
 
       if (response.ok) {
         const result = await response.json()
-        setUploadMessage(`Plik ${file.name} został pomyślnie przesłany i przetworzony`)
+        setUploadMessage(
+          `Plik ${file.name} został pomyślnie przesłany i przetworzony`
+        )
         setUploadStatus("success")
         setFile(null)
         if (fileInputRef.current) {
@@ -72,7 +76,9 @@ export default function Page() {
         }
       } else {
         const error = await response.json()
-        setUploadMessage(`Błąd: ${error.message || "Nie udało się przetworzyć pliku"}`)
+        setUploadMessage(
+          `Błąd: ${error.message || "Nie udało się przetworzyć pliku"}`
+        )
         setUploadStatus("error")
       }
     } catch (error) {
