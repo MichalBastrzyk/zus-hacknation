@@ -1,3 +1,5 @@
+import { AccidentChat } from "@/components/AccidentChat"
+
 export default function Home() {
   return (
     <>
@@ -8,7 +10,7 @@ export default function Home() {
         allowFullScreen
       />
 
-      {/* Tutaj powinien iść czatbot odpowiedzialny za interakcje z klientem zusu */}
+      <AccidentChat />
     </>
   )
 }

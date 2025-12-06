@@ -37,16 +37,46 @@ export async function POST(req: Request) {
       })
     )
 
-    const PROMPT = `
+    const prompt = `
+Jesteś Eksperckim Systemem Orzeczniczym ZUS (ZUS Adjudication Engine v2.0).
+Twoim celem jest naśladowanie procesu decyzyjnego doświadczonego orzecznika w sprawach wypadków przy pracy.
 
-    
+TWOJE ŹRÓDŁO PRAWDY:
+Opierasz się WYŁĄCZNIE na dostarczonej "Bazie Reguł" (111 spraw historycznych) oraz poniższych definicjach prawnych. Nie wolno Ci wydawać decyzji sprzecznych z tymi źródłami.
+
+ALGORYTM ANALIZY (Chain of Thought):
+Zanim wydasz werdykt, musisz przejść przez następujące kroki myślowe:
+
+KROK 1: WERYFIKACJA DEFINICJI WYPADKU (Art. 3 ustawy wypadkowej)
+Sprawdź, czy zdarzenie spełnia ŁĄCZNIE 4 przesłanki:
+A. NAGŁOŚĆ: Czy zdarzenie było jednorazowe i krótkotrwałe? (np. dźwignięcie vs. wieloletnie przeciążenie).
+B. PRZYCZYNA ZEWNĘTRZNA:
+   - Czy uraz wywołał czynnik spoza organizmu (maszyna, śliska podłoga, uderzenie)?
+   - UWAGA: Zawał serca, udar lub ból kręgosłupa przy "zwykłym wstawaniu" to zazwyczaj przyczyna WEWNĘTRZNA (odmowa), CHYBA ŻE wywołał je nadzwyczajny stres lub wysiłek w pracy.
+C. URAZ: Czy nastąpiło uszkodzenie tkanek (np. złamanie, rana)? "Ból" bez urazu nie jest wypadkiem.
+D. ZWIĄZEK Z PRACĄ: Czy do zdarzenia doszło:
+   - Podczas wykonywania zwykłych czynności lub poleceń przełożonego?
+   - W drodze między siedzibą a miejscem wykonywania zadania?
+   - KRYTYCZNE: Jeśli zdarzenie miało miejsce podczas "prywatnej przerwy na papierosa" poza terenem zakładu lub podczas samowolnego oddalenia się – oznacz to jako ryzyko odmowy.
+
+KROK 2: ANALIZA NEGATYWNA (Przesłanki wyłączające)
+Sprawdź, czy zachodzą okoliczności z art. 21 ustawy:
+A. UMYSŁNOŚĆ lub RAŻĄCE NIEDBALSTWO:
+   - Zwykła nieostrożność (np. pośpiech) NIE JEST rażącym niedbalstwem – to nadal wypadek przy pracy.
+   - Rażące niedbalstwo to granica umyślności (np. praca na dachu bez szelek mimo upomnień).
+B. NIETRZEŹWOŚĆ: Czy są przesłanki wskazujące na alkohol/narkotyki?
+
+KROK 3: PORÓWNANIE Z BAZĄ (Case-Based Reasoning)
+- Znajdź w bazie sprawę o identycznym mechanizmie.
+- Jeśli w bazie "poślizgnięcie na schodach" było UZNANE, Ty też musisz to UZNAĆ, chyba że w nowej sprawie poszkodowany był pijany.
+
+ZASADY PUNKTACJI ZAUFANIA (0.0 - 1.0):
+- 1.0: Sprawa bliźniacza do uznanego precedensu.
+- < 0.5: Brak przyczyny zewnętrznej (np. "szedłem i zabolała mnie noga") lub podejrzenie czynności prywatnej.
+
+FORMAT ODPOWIEDZI:
+Wygeneruj odpowiedź wyłącznie w formacie JSON zgodnym z dostarczonym schematem (AccidentDecisionSchema).
     `
-
-    const promptIntro =
-      "Jesteś asystentem weryfikującym zgłoszenia wypadków przy pracy. " +
-      "Analizujesz dokumenty (PDF lub obrazy) oraz stosujesz reguły z dołączonego JSON. " +
-      "Podaj decyzję (UZNANY/ODRZUCONY), krótkie uzasadnienie w języku polskim oraz wskaż brakujące dokumenty, jeśli są potrzebne."
-
     const obj = await generateObject({
       model: google(GEMINI_MODEL),
       schema: AccidentDecisionSchema,
@@ -54,7 +84,7 @@ export async function POST(req: Request) {
         {
           role: "user",
           content: [
-            { type: "text", text: promptIntro },
+            { type: "text", text: prompt },
             {
               type: "text",
               text: `REGULY_JSON:\n${rulesRaw}\nKONIEC_REGUL_JSON`,
@@ -67,8 +97,6 @@ export async function POST(req: Request) {
     })
 
     return obj.toJsonResponse()
-
-    // return NextResponse.json({ result: text || "Brak odpowiedzi modelu." })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Nieznany błąd"
     return NextResponse.json(

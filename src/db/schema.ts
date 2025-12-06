@@ -1,5 +1,6 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
+import { sqliteTable, text, integer, blob, real } from "drizzle-orm/sqlite-core"
 import { relations, sql } from "drizzle-orm"
+import { AccidentDecision } from "@/lib/validators"
 
 const timestamps = {
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -83,6 +84,40 @@ export const accidents = sqliteTable("accidents", {
   accidentDescription: text("accident_description").notNull(),
   accidentCause: text("accident_cause"),
   status: text("status", { enum: REPORT_STATUSES }).default("szkic").notNull(),
+  ...timestamps,
+})
+
+type AttachedDocument = {
+  name: string
+  hash: string
+}
+
+export const analysis = sqliteTable("analysis", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  // accidentId: text("accident_id")
+  //   .references(() => accidents.id)
+  //   .notNull(),
+  decision: text("decision").$type<
+    "APPROVED" | "REJECTED" | "NEEDS_CLARIFICATION"
+  >(),
+  confidenceLevel: real("confidence_level").notNull(),
+  criteriaAnalysis: blob({ mode: "json" })
+    .$type<AccidentDecision["criteria_analysis"]>()
+    .notNull(),
+  identifiedFlaws: blob({ mode: "json" })
+    .$type<AccidentDecision["identified_flaws"]>()
+    .notNull(),
+  suggestedFollowUpQuestions: blob({ mode: "json" })
+    .$type<AccidentDecision["suggested_follow_up_questions"]>()
+    .notNull(),
+  attachedDocuments: blob({ mode: "json" })
+    .$type<AttachedDocument[] | null>()
+    .default(null),
+  attachedDocumentsHash: text("attached_documents_hash", {
+    length: 128,
+  }).notNull(),
   ...timestamps,
 })
 
