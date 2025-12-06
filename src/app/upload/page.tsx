@@ -1,179 +1,158 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { Upload, FileText, CheckCircle, AlertCircle } from "lucide-react"
-import { Button } from "@/src/components/ui/button"
+import { Upload, X } from "lucide-react"
+import * as React from "react"
+import { toast } from "sonner"
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/src/components/ui/card"
-import { Alert, AlertDescription } from "@/src/components/ui/alert"
+  FileUpload,
+  FileUploadDropzone,
+  FileUploadItem,
+  FileUploadItemDelete,
+  FileUploadItemMetadata,
+  FileUploadItemPreview,
+  FileUploadList,
+  FileUploadTrigger,
+} from "@/components/ui/file-upload"
+import { Button } from "@/components/ui/button"
 
-export default function UploadPage() {
-    const [file, setFile] = useState<File | null>(null)
-    const [isLoading, setIsLoading] = useState(false)
-    const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle")
-    const [statusMessage, setStatusMessage] = useState("")
-    const fileInputRef = useRef<HTMLInputElement>(null)
+export default function FileUploadValidationDemo() {
+  const [files, setFiles] = React.useState<File[]>([])
+  const [isSending, setIsSending] = React.useState(false)
+  const [result, setResult] = React.useState<string | null>(null)
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0]
-        if (selectedFile && selectedFile.type === "application/pdf") {
-            setFile(selectedFile)
-            setUploadStatus("idle")
-            setStatusMessage("")
-        } else {
-            setStatusMessage("Proszę wybrać plik PDF")
-            setUploadStatus("error")
-        }
+  const onFileValidate = React.useCallback(
+    (file: File): string | null => {
+      if (files.length >= 3) {
+        return "Możesz dodać maksymalnie 3 pliki. (Zawiadomienia o wypadku, wyjaśnienia itp.)"
+      }
+
+      const isImage = file.type.startsWith("image/")
+      const isPdf =
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf")
+
+      if (!isImage && !isPdf) {
+        return "Dozwolone są tylko obrazy lub pliki PDF."
+      }
+
+      const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+      if (file.size > MAX_SIZE) {
+        return "Rozmiar pliku musi być mniejszy niż 2 MB."
+      }
+
+      return null
+    },
+    [files]
+  )
+
+  const onFileReject = React.useCallback((file: File, message: string) => {
+    const name =
+      file.name.length > 24 ? `${file.name.slice(0, 21)}...` : file.name
+    toast(message, {
+      description: `Plik "${name}" został odrzucony.`,
+    })
+  }, [])
+
+  const onAnalyze = React.useCallback(async () => {
+    if (!files.length) {
+      toast("Dodaj co najmniej jeden plik do analizy.")
+      return
     }
 
-    const handleUpload = async () => {
-        if (!file) {
-            setStatusMessage("Proszę wybrać plik")
-            setUploadStatus("error")
-            return
-        }
+    setIsSending(true)
+    setResult(null)
 
-        setIsLoading(true)
-        setStatusMessage("Przetwarzanie pliku...")
+    try {
+      const formData = new FormData()
+      files.forEach((file) => formData.append("files", file))
 
-        try {
-            const formData = new FormData()
-            formData.append("file", file)
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      })
 
-            const response = await fetch("/api/upload/pdf", {
-                method: "POST",
-                body: formData,
-            })
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        const message = error?.error || "Nie udało się przeprowadzić analizy."
+        toast(message)
+        return
+      }
 
-            if (response.ok) {
-                const result = await response.json()
-                setStatusMessage(`Plik ${file.name} został pomyślnie przesłany i przetworzony`)
-                setUploadStatus("success")
-                setFile(null)
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = ""
-                }
-            } else {
-                const error = await response.json()
-                setStatusMessage(`Błąd: ${error.message || "Nie udało się przetworzyć pliku"}`)
-                setUploadStatus("error")
-            }
-        } catch (error) {
-            console.error("Upload error:", error)
-            setStatusMessage("Błąd podczas przesyłania pliku")
-            setUploadStatus("error")
-        } finally {
-            setIsLoading(false)
-        }
+      const data = await response.json()
+      const text = data?.result || "Brak odpowiedzi z analizy."
+      setResult(text)
+      toast("Analiza zakończona.")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Nieznany błąd"
+      toast(`Nie udało się przeprowadzić analizy: ${message}`)
+    } finally {
+      setIsSending(false)
     }
+  }, [files])
 
-    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault()
-        e.stopPropagation()
-    }
-
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-        e.preventDefault()
-        e.stopPropagation()
-
-        const droppedFile = e.dataTransfer.files?.[0]
-        if (droppedFile && droppedFile.type === "application/pdf") {
-            setFile(droppedFile)
-            setUploadStatus("idle")
-            setStatusMessage("")
-        } else {
-            setStatusMessage("Proszę wybrać plik PDF")
-            setUploadStatus("error")
-        }
-    }
-
-    return (
-        <div className="p-6 max-w-2xl mx-auto">
-            <div className="mb-8">
-                <h1 className="text-4xl font-bold mb-2">Przesłij PDF</h1>
-                <p className="text-gray-600">Prześlij dokument PDF do przetworzenia</p>
-            </div>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Przesyłanie pliku PDF</CardTitle>
-                    <CardDescription>
-                        Wybierz lub przeciągnij plik PDF do obszaru poniżej
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    {/* Drag and drop area */}
-                    <div
-                        onDragOver={handleDragOver}
-                        onDrop={handleDrop}
-                        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 hover:bg-blue-50 transition-colors cursor-pointer"
-                    >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".pdf"
-                            onChange={handleFileSelect}
-                            className="hidden"
-                            id="pdf-upload"
-                        />
-                        <label htmlFor="pdf-upload" className="cursor-pointer block">
-                            <FileText className="h-12 w-12 mx-auto mb-3 text-gray-400" />
-                            <p className="text-lg font-semibold mb-1">Przeciągnij plik tutaj</p>
-                            <p className="text-sm text-gray-500">lub kliknij aby wybrać plik PDF</p>
-                        </label>
-                    </div>
-
-                    {/* Selected file info */}
-                    {file && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <div className="flex items-center gap-3">
-                                <FileText className="h-6 w-6 text-blue-600" />
-                                <div className="flex-1">
-                                    <p className="font-semibold text-blue-900">{file.name}</p>
-                                    <p className="text-sm text-blue-700">
-                                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Status messages */}
-                    {uploadStatus === "success" && (
-                        <Alert className="bg-green-50 border-green-200">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            <AlertDescription className="text-green-800">
-                                {statusMessage}
-                            </AlertDescription>
-                        </Alert>
-                    )}
-
-                    {uploadStatus === "error" && (
-                        <Alert className="bg-red-50 border-red-200">
-                            <AlertCircle className="h-4 w-4 text-red-600" />
-                            <AlertDescription className="text-red-800">
-                                {statusMessage}
-                            </AlertDescription>
-                        </Alert>
-                    )}
-
-                    {/* Upload button */}
-                    <Button
-                        onClick={handleUpload}
-                        disabled={!file || isLoading}
-                        size="lg"
-                        className="w-full gap-2"
-                    >
-                        <Upload className="h-5 w-5" />
-                        {isLoading ? "Przetwarzanie..." : "Przeslij plik"}
-                    </Button>
-                </CardContent>
-            </Card>
+  return (
+    <FileUpload
+      value={files}
+      onValueChange={setFiles}
+      onFileValidate={onFileValidate}
+      onFileReject={onFileReject}
+      accept="image/*,application/pdf,.pdf"
+      maxFiles={3}
+      className="w-full"
+      multiple
+    >
+      <FileUploadDropzone>
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="flex items-center justify-center rounded-full border p-3">
+            <Upload className="size-6 text-muted-foreground" />
+          </div>
+          <p className="font-medium text-sm">Przeciągnij i upuść pliki tutaj</p>
+          <p className="text-muted-foreground text-xs">
+            Maks 3 pliki. Do 2 MB każdy. (zawiadomienia o wypadku, wyjaśnienia
+            itp.)
+          </p>
         </div>
-    )
+        <FileUploadTrigger asChild>
+          <Button variant="outline" size="sm" className="mt-3 w-fit">
+            Wybierz pliki
+          </Button>
+        </FileUploadTrigger>
+      </FileUploadDropzone>
+      <FileUploadList>
+        {files.map((file) => (
+          <FileUploadItem key={file.name} value={file}>
+            <FileUploadItemPreview />
+            <FileUploadItemMetadata />
+            <FileUploadItemDelete asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                aria-label="Usuń plik"
+              >
+                <X />
+              </Button>
+            </FileUploadItemDelete>
+          </FileUploadItem>
+        ))}
+      </FileUploadList>
+      <div className="mt-4 flex items-center gap-3">
+        <Button
+          type="button"
+          onClick={onAnalyze}
+          disabled={isSending || files.length === 0}
+        >
+          {isSending ? "Analizuję..." : "Wyślij do analizy"}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Pliki są wysyłane z instrukcjami z bazy reguł do modelu Gemini.
+        </p>
+      </div>
+      {result && (
+        <div className="mt-4 rounded border bg-card p-4 text-sm whitespace-pre-wrap">
+          {result}
+        </div>
+      )}
+    </FileUpload>
+  )
 }
