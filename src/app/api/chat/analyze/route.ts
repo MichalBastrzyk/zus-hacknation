@@ -31,12 +31,29 @@ const SYSTEM_PROMPT = `
 Jesteś Eksperckim Systemem Orzeczniczym ZUS (ZUS Adjudication Engine v2.0).
 Oceń szanse uznania wypadku wyłącznie na podstawie rozmowy (brak plików).
 Wynik strukturyzuj według podanego schematu JSON (AccidentDecisionSchema).
+
+KRYTYCZNE - EKSTRAKCJA DANYCH:
+Przed analizą musisz wyodrębnić z rozmowy następujące dane i umieścić je w polu "extracted_data":
+- injured_first_name: Imię poszkodowanego
+- injured_last_name: Nazwisko poszkodowanego  
+- employer_name: Nazwa pracodawcy/zakładu pracy
+- position: Stanowisko poszkodowanego
+- accident_date: Data wypadku (format YYYY-MM-DD)
+- accident_place: Miejsce wypadku
+- accident_description: Krótki opis przebiegu wypadku
+- accident_cause: Przyczyna wypadku
+
+Jak ekstrahować:
+- Przeszukaj całą treść rozmowy (także pojedyncze zdania bez etykiet) i kopiuj oryginalne brzmienie bez parafraz.
+- Jeśli znalazłeś tylko częściową informację, zwróć najlepszy fragment; jeśli nic nie ma, ustaw null (nie halucynuj).
 ` as const
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as BodyShape | null
     const messages = parseMessages(body?.messages)
+
+    console.log(messages)
 
     if (!messages) {
       return NextResponse.json(
