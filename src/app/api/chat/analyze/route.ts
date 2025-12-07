@@ -6,7 +6,7 @@ import { NextResponse } from "next/server"
 import { AccidentCardSchema } from "@/lib/extractors"
 import { AccidentDecisionSchema } from "@/lib/validators"
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite"
+const GEMINI_MODEL = "gemini-2.5-flash"
 
 const ACCIDENT_CARD_PROMPT = `
 Na podstawie transkryptu rozmowy wyodrębnij wszystkie pola Karty Wypadku zgodnie z AccidentCardSchema.
@@ -61,8 +61,6 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => null)) as BodyShape | null
     const messages = parseMessages(body?.messages)
-
-    console.log(messages)
 
     if (!messages) {
       return NextResponse.json(

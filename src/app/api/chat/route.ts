@@ -3,7 +3,7 @@ import { generateObject } from "ai"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite"
+const GEMINI_MODEL = "gemini-2.5-flash"
 
 const ChatReplySchema = z.object({
   assistant_message: z
@@ -161,8 +161,6 @@ export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null)
     const messages = parseMessages(body?.messages)
-
-    console.log(messages)
 
     if (!messages) {
       return NextResponse.json(

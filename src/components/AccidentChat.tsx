@@ -96,7 +96,6 @@ export function AccidentChat() {
     setError(null)
 
     try {
-      console.log(nextMessages)
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -227,7 +226,7 @@ export function AccidentChat() {
                     {message.content}
                   </div>
                 ))}
-                {missingFields.length > 0 && (
+                {/* {missingFields.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground">
                       Brakujące elementy do uzupełnienia:
@@ -240,7 +239,7 @@ export function AccidentChat() {
                       ))}
                     </div>
                   </div>
-                )}
+                )} */}
                 {followUps.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground">
@@ -254,7 +253,7 @@ export function AccidentChat() {
                   </div>
                 )}
 
-                {!decision && messages.length > 0 && (
+                {!decision && messages.length > 2 && (
                   <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
                     <div className="font-semibold text-foreground text-sm">
                       Sprawdź wstępny werdykt

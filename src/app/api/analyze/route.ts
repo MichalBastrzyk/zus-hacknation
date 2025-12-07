@@ -6,7 +6,7 @@ import { NextResponse } from "next/server"
 import { AccidentCardSchema } from "@/lib/extractors"
 import { AccidentDecisionSchema } from "@/lib/validators"
 
-const GEMINI_MODEL = "gemini-2.5-flash-lite"
+const GEMINI_MODEL = "gemini-2.5-flash"
 
 const ACCIDENT_CARD_PROMPT = `
 Wyodrębnij komplet danych wymaganych do sporządzenia Karty Wypadku przy pracy.

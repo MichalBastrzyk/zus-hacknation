@@ -6,10 +6,14 @@ import { pl } from "date-fns/locale"
 import {
   AlertCircle,
   ArrowLeft,
+  Building2,
   CheckCircle2,
   FileText,
   MessageCircleQuestion,
   MinusCircle,
+  Scale,
+  User,
+  Users,
   XCircle,
 } from "lucide-react"
 import { db } from "@/db"
@@ -17,6 +21,7 @@ import { analysis as analysisTable } from "@/db/schema"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import type { AccidentCard } from "@/lib/extractors"
 
 function formatDate(value: number | Date | string | null | undefined) {
   if (!value) return "—"
@@ -43,6 +48,7 @@ export default async function AnalysisDetail({
 
   const confidencePct = Math.round((record.confidenceLevel ?? 0) * 100)
   const decisionStyle = getDecisionStyle(record.decision ?? null)
+  const accidentCard = record.accidentCard as AccidentCard | null
 
   return (
     <div className="p-6 space-y-8">
@@ -83,33 +89,128 @@ export default async function AnalysisDetail({
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
+          {/* I. DANE PŁATNIKA SKŁADEK */}
+          <DetailCard
+            title="Dane płatnika składek"
+            icon={<Building2 className="h-4 w-4 text-blue-500" />}
+          >
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <Info
+                label="Nazwa płatnika"
+                value={
+                  accidentCard?.employer.employer_name ||
+                  record.employerName ||
+                  "—"
+                }
+                full
+              />
+              <Info
+                label="Adres siedziby"
+                value={accidentCard?.employer.hq_address || "—"}
+                full
+              />
+              <Info label="NIP" value={accidentCard?.employer.nip || "—"} />
+              <Info label="REGON" value={accidentCard?.employer.regon || "—"} />
+              <Info
+                label="PESEL płatnika"
+                value={accidentCard?.employer.pesel || "—"}
+              />
+            </dl>
+          </DetailCard>
+
+          {/* II. DANE POSZKODOWANEGO */}
           <DetailCard
             title="Dane poszkodowanego"
-            icon={<CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+            icon={<User className="h-4 w-4 text-emerald-500" />}
           >
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <Info
                 label="Imię i nazwisko"
                 value={composeName(
-                  record.injuredFirstName,
-                  record.injuredLastName
+                  accidentCard?.injured.first_name || record.injuredFirstName,
+                  accidentCard?.injured.last_name || record.injuredLastName
                 )}
               />
+              <Info label="PESEL" value={accidentCard?.injured.pesel || "—"} />
+              <Info
+                label="Data urodzenia"
+                value={accidentCard?.injured.birth.date || "—"}
+              />
+              <Info
+                label="Miejsce urodzenia"
+                value={accidentCard?.injured.birth.place || "—"}
+              />
+              <Info
+                label="Adres zamieszkania"
+                value={accidentCard?.injured.address || "—"}
+                full
+              />
+              {accidentCard?.injured.id && (
+                <>
+                  <Info
+                    label="Dokument tożsamości"
+                    value={accidentCard.injured.id.kind || "—"}
+                  />
+                  <Info
+                    label="Seria i numer"
+                    value={
+                      `${accidentCard.injured.id.series || ""} ${
+                        accidentCard.injured.id.number || ""
+                      }`.trim() || "—"
+                    }
+                  />
+                </>
+              )}
+              <Info
+                label="Tytuł ubezpieczenia"
+                value={
+                  accidentCard?.injured.insurance_title
+                    ? `${accidentCard.injured.insurance_title.code} – ${accidentCard.injured.insurance_title.description}`
+                    : "—"
+                }
+                full
+              />
+              <Info
+                label="Uczeń/student"
+                value={
+                  accidentCard?.injured.is_student !== undefined
+                    ? accidentCard.injured.is_student
+                      ? "Tak"
+                      : "Nie"
+                    : "—"
+                }
+              />
               <Info label="Stanowisko" value={record.positionSnapshot || "—"} />
-              <Info label="Pracodawca" value={record.employerName || "—"} />
             </dl>
           </DetailCard>
 
+          {/* III. INFORMACJE O WYPADKU */}
           <DetailCard
-            title="Informacje o zdarzeniu"
+            title="Informacje o wypadku"
             icon={<AlertCircle className="h-4 w-4 text-amber-500" />}
           >
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <Info label="Data" value={record.accidentDate || "—"} />
+              <Info
+                label="Data zgłoszenia"
+                value={
+                  accidentCard?.accident.date || record.accidentDate || "—"
+                }
+              />
+              <Info
+                label="Zgłaszający"
+                value={composeName(
+                  accidentCard?.accident.reporters_first_name,
+                  accidentCard?.accident.reporters_last_name
+                )}
+              />
               <Info label="Miejsce" value={record.accidentPlace || "—"} />
               <Info
-                label="Opis"
-                value={record.accidentDescription || "Brak opisu"}
+                label="Opis zdarzenia"
+                value={
+                  accidentCard?.accident.description ||
+                  record.accidentDescription ||
+                  "Brak opisu"
+                }
                 full
               />
               <Info
@@ -119,6 +220,94 @@ export default async function AnalysisDetail({
               />
             </dl>
           </DetailCard>
+
+          {/* KWALIFIKACJA PRAWNA */}
+          {accidentCard?.accident.legal_qualification && (
+            <DetailCard
+              title="Kwalifikacja prawna"
+              icon={<Scale className="h-4 w-4 text-indigo-500" />}
+            >
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <Info
+                  label="Czy wypadek przy pracy?"
+                  value={
+                    accidentCard.accident.legal_qualification
+                      .is_accident_at_work
+                      ? "TAK"
+                      : "NIE"
+                  }
+                />
+                <Info
+                  label="Podstawa prawna"
+                  value={
+                    accidentCard.accident.legal_qualification.legal_basis || "—"
+                  }
+                />
+                <Info
+                  label="Uzasadnienie"
+                  value={
+                    accidentCard.accident.legal_qualification.justification ||
+                    "—"
+                  }
+                  full
+                />
+              </dl>
+            </DetailCard>
+          )}
+
+          {/* OKOLICZNOŚCI WYŁĄCZAJĄCE */}
+          <DetailCard
+            title="Okoliczności wyłączające"
+            icon={<AlertCircle className="h-4 w-4 text-rose-500" />}
+          >
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <Info
+                label="Niedbalstwo / naruszenie przepisów"
+                value={
+                  accidentCard?.accident_causes?.negligence_statement ||
+                  "Nie stwierdzono"
+                }
+                full
+              />
+              <Info
+                label="Nietrzeźwość"
+                value={
+                  accidentCard?.sobriety.was_intoxicated !== undefined
+                    ? accidentCard.sobriety.was_intoxicated
+                      ? "Tak"
+                      : "Nie"
+                    : "—"
+                }
+              />
+              <Info
+                label="Dowody nietrzeźwości"
+                value={accidentCard?.sobriety.evidence_description || "—"}
+                full
+              />
+            </dl>
+          </DetailCard>
+
+          {/* ŚWIADKOWIE */}
+          {accidentCard?.witnesses && accidentCard.witnesses.length > 0 && (
+            <DetailCard
+              title="Świadkowie"
+              icon={<Users className="h-4 w-4 text-slate-500" />}
+            >
+              <ul className="space-y-3">
+                {accidentCard.witnesses.map((witness, idx) => (
+                  <li
+                    key={idx}
+                    className="rounded-md border border-slate-200 bg-slate-50/60 p-3"
+                  >
+                    <p className="font-medium text-slate-800">
+                      {witness.first_name} {witness.last_name}
+                    </p>
+                    <p className="text-sm text-slate-600">{witness.address}</p>
+                  </li>
+                ))}
+              </ul>
+            </DetailCard>
+          )}
 
           <DetailCard
             title="Ocena przesłanek"
@@ -186,6 +375,57 @@ export default async function AnalysisDetail({
         </div>
 
         <div className="space-y-6">
+          {/* META PROCESS */}
+          {accidentCard?.meta_process && (
+            <DetailCard
+              title="Informacje procesowe"
+              icon={<FileText className="h-4 w-4 text-slate-500" />}
+            >
+              <dl className="space-y-3 text-sm">
+                <Info
+                  label="Zapoznanie z kartą"
+                  value={`${
+                    accidentCard.meta_process.acknowledgment.person_name || "—"
+                  } (${accidentCard.meta_process.acknowledgment.date || "—"})`}
+                />
+                <Info
+                  label="Data sporządzenia"
+                  value={accidentCard.meta_process.preparation.date || "—"}
+                />
+                <Info
+                  label="Podmiot sporządzający"
+                  value={
+                    accidentCard.meta_process.preparation.entity_name || "—"
+                  }
+                />
+                <Info
+                  label="Osoba sporządzająca"
+                  value={
+                    accidentCard.meta_process.preparation.preparer_name || "—"
+                  }
+                />
+                {accidentCard.meta_process.delay_reason && (
+                  <Info
+                    label="Powód opóźnienia"
+                    value={accidentCard.meta_process.delay_reason}
+                  />
+                )}
+                {accidentCard.meta_process.receipt_date && (
+                  <Info
+                    label="Data odebrania"
+                    value={accidentCard.meta_process.receipt_date}
+                  />
+                )}
+                {accidentCard.meta_process.attachments?.length > 0 && (
+                  <Info
+                    label="Załączniki (karta)"
+                    value={accidentCard.meta_process.attachments.join(", ")}
+                  />
+                )}
+              </dl>
+            </DetailCard>
+          )}
+
           <DetailCard
             title="Pytania uzupełniające"
             icon={<MessageCircleQuestion className="h-4 w-4 text-slate-500" />}
