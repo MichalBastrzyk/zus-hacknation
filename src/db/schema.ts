@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, blob, real } from "drizzle-orm/sqlite-core"
 import { relations, sql } from "drizzle-orm"
+import { AccidentCard } from "@/lib/extractors"
 import { AccidentDecision } from "@/lib/validators"
 
 const timestamps = {
@@ -120,6 +121,9 @@ export const analysis = sqliteTable("analysis", {
     .notNull(),
   attachedDocuments: blob({ mode: "json" })
     .$type<AttachedDocument[] | null>()
+    .default(null),
+  accidentCard: blob({ mode: "json" })
+    .$type<AccidentCard | null>()
     .default(null),
   ...timestamps,
 })

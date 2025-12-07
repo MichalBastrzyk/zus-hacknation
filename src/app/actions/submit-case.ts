@@ -4,6 +4,7 @@ import crypto from "crypto"
 
 import { db } from "@/db"
 import { analysis } from "@/db/schema"
+import type { AccidentCard } from "@/lib/extractors"
 import type { AccidentDecision } from "@/lib/validators"
 
 type ChatMessage = {
@@ -14,6 +15,7 @@ type ChatMessage = {
 type SubmitPayload = {
   messages: ChatMessage[]
   decision: AccidentDecision
+  accidentCard?: AccidentCard | null
   attachments?: { name: string; hash?: string }[]
 }
 
@@ -81,6 +83,7 @@ function extractFromTranscript(transcript: string) {
 export async function submitCase({
   messages,
   decision,
+  accidentCard,
   attachments,
 }: SubmitPayload) {
   if (!decision) {
@@ -122,6 +125,11 @@ export async function submitCase({
       decision.criteria_analysis.external_cause.justification,
   }
 
+  const accidentCardPayload =
+    accidentCard ??
+    (decision as unknown as { accidentCard?: AccidentCard }).accidentCard ??
+    null
+
   const [row] = await db
     .insert(analysis)
     .values({
@@ -148,6 +156,7 @@ export async function submitCase({
               .update(`${item.name}-${hash}-${idx}`)
               .digest("hex"),
         })) ?? null,
+      accidentCard: accidentCardPayload,
     })
     .returning({ id: analysis.id })
 

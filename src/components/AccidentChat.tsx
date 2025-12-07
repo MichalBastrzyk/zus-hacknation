@@ -17,8 +17,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
 import { MessageCircleMore, Send, XIcon } from "lucide-react"
+import type { AccidentCard } from "@/lib/extractors"
 import type { AccidentDecision } from "@/lib/validators"
-import { submitCase } from "@/app/actions/submitCase"
+import { submitCase } from "@/app/actions/submit-case"
 
 export type ChatMessage = {
   role: "user" | "assistant"
@@ -160,7 +161,14 @@ export function AccidentChat() {
     setSubmitMessage(null)
     startSubmit(async () => {
       try {
-        await submitCase({ messages, decision })
+        const accidentCard =
+          (
+            decision as unknown as {
+              accidentCard?: AccidentCard | null
+            }
+          ).accidentCard ?? null
+
+        await submitCase({ messages, decision, accidentCard })
         setSubmitMessage(
           "Zgłoszenie zapisane. Urzędnik skontaktuje się wkrótce."
         )

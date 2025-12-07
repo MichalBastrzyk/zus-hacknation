@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+export type AccidentCard = z.infer<typeof AccidentCardSchema>
+
 export const AccidentCardSchema = z.object({
   // --- I. DANE IDENTYFIKACYJNE PŁATNIKA SKŁADEK ---
   employer: z.object({
@@ -30,6 +32,7 @@ export const AccidentCardSchema = z.object({
   injured: z.object({
     first_name: z.string().describe("Imię poszkodowanego (pkt II.1)"),
     last_name: z.string().describe("Nazwisko poszkodowanego (pkt II.1)"),
+    pesel: z.string().describe("Numer PESEL poszkodowanego (pkt II.2)"),
     id: z
       .object({
         kind: z.enum(["dowód osobisty", "paszport"]),

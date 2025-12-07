@@ -3,9 +3,17 @@ import path from "path"
 import { google } from "@ai-sdk/google"
 import { generateObject } from "ai"
 import { NextResponse } from "next/server"
+import { AccidentCardSchema } from "@/lib/extractors"
 import { AccidentDecisionSchema } from "@/lib/validators"
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite"
+
+const ACCIDENT_CARD_PROMPT = `
+Na podstawie transkryptu rozmowy wyodrębnij wszystkie pola Karty Wypadku zgodnie z AccidentCardSchema.
+- Jeśli w rozmowie brakuje konkretnej informacji, wpisz pusty string lub "brak danych" (ciąg znaków).
+- Kopiuj oryginalne brzmienie wypowiedzi bez parafrazowania.
+Zwróć wyłącznie poprawny JSON.
+` as const
 
 type ChatMessage = { role: "user" | "assistant"; content: string }
 
@@ -44,6 +52,7 @@ Przed analizą musisz wyodrębnić z rozmowy następujące dane i umieścić je 
 - accident_cause: Przyczyna wypadku
 
 Jak ekstrahować:
+- Zawsze odpowiadaj w formacie języku polskim nigdy nie może to być język angielski.
 - Przeszukaj całą treść rozmowy (także pojedyncze zdania bez etykiet) i kopiuj oryginalne brzmienie bez parafraz.
 - Jeśli znalazłeś tylko częściową informację, zwróć najlepszy fragment; jeśli nic nie ma, ustaw null (nie halucynuj).
 ` as const
@@ -84,7 +93,19 @@ export async function POST(req: Request) {
       ],
     })
 
-    return NextResponse.json(object)
+    const { object: accidentCard } = await generateObject({
+      model: google(GEMINI_MODEL),
+      schema: AccidentCardSchema,
+      temperature: 0.2,
+      messages: [
+        {
+          role: "user",
+          content: `${ACCIDENT_CARD_PROMPT}\nTRANSKRYPT:\n${transcript}`,
+        },
+      ],
+    })
+
+    return NextResponse.json({ ...object, accidentCard })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Nieznany błąd"
     return NextResponse.json(

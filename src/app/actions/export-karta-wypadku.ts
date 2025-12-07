@@ -8,15 +8,12 @@ import { eq } from "drizzle-orm"
 
 import { db } from "@/db"
 import { analysis as analysisTable } from "@/db/schema"
+import type { AccidentCard } from "@/lib/extractors"
 
 type ExportResult = {
   url: string
   fileName: string
   mimeType: string
-}
-
-function toFullName(first?: string | null, last?: string | null) {
-  return [first, last].filter(Boolean).join(" ")
 }
 
 export async function exportKartaWypadkuUrl(
@@ -50,21 +47,54 @@ export async function exportKartaWypadkuUrl(
     nullGetter: () => "", // Ensure missing data does not break rendering.
   })
 
+  const accidentCard = record.accidentCard as AccidentCard | null
+
+  const pick = (value?: string | null) => value ?? ""
+
   // Map available fields to placeholders used inside the DOCX template.
+  // Placeholder keys extracted from wzor-karta-wypadku.docx
   const dataForTemplate = {
-    imie_i_nazwisko: toFullName(
-      record.injuredFirstName,
-      record.injuredLastName
+    // --- I. DANE PŁATNIKA SKŁADEK ---
+    employer_name:
+      accidentCard?.employer.employer_name ?? record.employerName ?? "",
+    hq_address: pick(accidentCard?.employer.hq_address),
+    nip: pick(accidentCard?.employer.nip),
+    regon: pick(accidentCard?.employer.regon),
+    employer_pesel: pick(accidentCard?.employer.pesel),
+
+    // --- II. DANE POSZKODOWANEGO ---
+    injured_first_name:
+      accidentCard?.injured.first_name ?? record.injuredFirstName ?? "",
+    injured_last_name:
+      accidentCard?.injured.last_name ?? record.injuredLastName ?? "",
+    pesel: pick(accidentCard?.injured.pesel),
+    birth_date: pick(accidentCard?.injured.birth.date),
+    birth_place: pick(accidentCard?.injured.birth.place),
+    address: pick(accidentCard?.injured.address),
+    id_kind: pick(accidentCard?.injured.id?.kind),
+    id_series: pick(accidentCard?.injured.id?.series),
+    id_number: pick(accidentCard?.injured.id?.number),
+    insurence_title_code: pick(accidentCard?.injured.insurance_title?.code),
+    insurance_title_description: pick(
+      accidentCard?.injured.insurance_title?.description
     ),
-    pesel: "",
-    data_urodzenia: "",
-    adres_zamieszkania: "",
-    miejsce_urodzenia: "",
-    imie_i_nazwisko_platnika: record.employerName ?? "",
-    adres_siedziby: "",
-    nip: "",
-    regon: "",
-    pesel_platnika: "",
+
+    // --- III. INFORMACJE O WYPADKU ---
+    accident_date: pick(accidentCard?.accident.date ?? record.accidentDate),
+    reporters_first_name: pick(accidentCard?.accident.reporters_first_name),
+    reporters_last_name: pick(accidentCard?.accident.reporters_last_name),
+    accident_description: pick(
+      accidentCard?.accident.description ?? record.accidentDescription
+    ),
+    sobriety_description: pick(accidentCard?.sobriety.evidence_description),
+
+    // --- ŚWIADKOWIE (up to 2) ---
+    witnesses_1_first_name: pick(accidentCard?.witnesses?.[0]?.first_name),
+    witnesses_1_last_name: pick(accidentCard?.witnesses?.[0]?.last_name),
+    witnesses_1_address: pick(accidentCard?.witnesses?.[0]?.address),
+    witnesses_2_first_name: pick(accidentCard?.witnesses?.[1]?.first_name),
+    witnesses_2_last_name: pick(accidentCard?.witnesses?.[1]?.last_name),
+    witnesses_2_address: pick(accidentCard?.witnesses?.[1]?.address),
   }
 
   doc.render(dataForTemplate)

@@ -15,10 +15,11 @@ import {
   FileUploadTrigger,
 } from "@/components/ui/file-upload"
 import { Button } from "@/components/ui/button"
+import type { AccidentCard } from "@/lib/extractors"
 import { AccidentDecision } from "@/lib/validators"
 import { AnalysisResult } from "@/components/AnalysisResult"
 import { Textarea } from "@/components/ui/textarea"
-import { submitCase } from "@/app/actions/submitCase"
+import { submitCase } from "@/app/actions/submit-case"
 import type { ChatMessage } from "@/components/AccidentChat"
 
 export default function FileUploadValidationDemo() {
@@ -122,6 +123,10 @@ export default function FileUploadValidationDemo() {
     setSaveMessage(null)
 
     try {
+      const accidentCard =
+        (result as unknown as { accidentCard?: AccidentCard | null })
+          .accidentCard ?? null
+
       await submitCase({
         messages: [
           {
@@ -135,6 +140,7 @@ export default function FileUploadValidationDemo() {
           },
         ],
         decision: result,
+        accidentCard,
         attachments:
           analyzedFileNames.length > 0
             ? analyzedFileNames.map((name) => ({ name }))
@@ -208,9 +214,14 @@ export default function FileUploadValidationDemo() {
     setManualFeedback(null)
 
     try {
+      const accidentCard =
+        (manualResult as unknown as { accidentCard?: AccidentCard | null })
+          .accidentCard ?? null
+
       await submitCase({
         messages: manualMessages,
         decision: manualResult,
+        accidentCard,
         attachments: [{ name: "Ręczne zgłoszenie (tekst)" }],
       })
       setManualFeedback("Zgłoszenie zapisane w bazie.")

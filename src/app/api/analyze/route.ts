@@ -3,9 +3,17 @@ import path from "path"
 import { google } from "@ai-sdk/google"
 import { generateObject } from "ai"
 import { NextResponse } from "next/server"
+import { AccidentCardSchema } from "@/lib/extractors"
 import { AccidentDecisionSchema } from "@/lib/validators"
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite"
+
+const ACCIDENT_CARD_PROMPT = `
+Wyodrębnij komplet danych wymaganych do sporządzenia Karty Wypadku przy pracy.
+Zwróć dane w formacie JSON zgodnym ze schematem AccidentCardSchema.
+- Jeśli jakiejś informacji brak w dokumentach, wpisz pusty string lub krótki opis "brak danych" (zawsze string).
+- Nie parafrazuj tego, co jest dostępne – kopiuj oryginalne brzmienie.
+`
 
 export async function POST(req: Request) {
   try {
@@ -91,9 +99,10 @@ ZASADY PUNKTACJI ZAUFANIA (0.0 - 1.0):
 - < 0.5: Brak przyczyny zewnętrznej (np. "szedłem i zabolała mnie noga") lub podejrzenie czynności prywatnej.
 
 FORMAT ODPOWIEDZI:
+Zawsze odpowiadaj w języku polskim. Nigdy nie może to być język angielski.
 Wygeneruj odpowiedź wyłącznie w formacie JSON zgodnym z dostarczonym schematem (AccidentDecisionSchema).
     `
-    const obj = await generateObject({
+    const { object: decision } = await generateObject({
       model: google(GEMINI_MODEL),
       schema: AccidentDecisionSchema,
       messages: [
@@ -112,7 +121,26 @@ Wygeneruj odpowiedź wyłącznie w formacie JSON zgodnym z dostarczonym schemate
       temperature: 0.2,
     })
 
-    return obj.toJsonResponse()
+    const { object: accidentCard } = await generateObject({
+      model: google(GEMINI_MODEL),
+      schema: AccidentCardSchema,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: ACCIDENT_CARD_PROMPT },
+            {
+              type: "text",
+              text: `REGULY_JSON:\n${rulesRaw}\nKONIEC_REGUL_JSON`,
+            },
+            ...fileParts,
+          ],
+        },
+      ],
+      temperature: 0.2,
+    })
+
+    return NextResponse.json({ ...decision, accidentCard })
   } catch (err) {
     const message = err instanceof Error ? err.message : "Nieznany błąd"
     return NextResponse.json(

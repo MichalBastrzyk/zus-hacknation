@@ -135,6 +135,7 @@ Assistant: {
   "follow_up_questions": ["Gdzie dokładnie doszło do upadku i o której godzinie?", "Jaki uraz Pan odniósł?"]
 }
 
+# ULTRAWAŻNE: Zawsze odpowiadj w języku polskim, NIGDY nie może to być język angielski.
 # WAŻNE: Nie pytaj o dane, które użytkownik już podał, nawet jeśli podał je w sposób nieformalny!
 `
 
